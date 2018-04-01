@@ -127,12 +127,6 @@ train_df = train_df.merge(gp, on=['ip','app', 'os'], how='left')
 del gp
 gc.collect()
 
-print('grouping by ip-device-os combination...')
-gp = train_df[['ip','device', 'os', 'channel']].groupby(by=['ip', 'device', 'os'])[['channel']].count().reset_index().rename(index=str, columns={'channel': 'ip_device_os_count_channel'})
-train_df = train_df.merge(gp, on=['ip','device', 'os'], how='left')
-del gp
-gc.collect()
-
 
 # Adding features with var and mean hour (inspired from nuhsikander's script)
 print('grouping by : ip_day_chl_var_hour')
@@ -160,12 +154,6 @@ train_df = train_df.merge(gp, on=['ip','app', 'channel'], how='left')
 del gp
 gc.collect()
 
-print('grouping by : ip_device_chl_mean_hour')
-gp = train_df[['ip','device', 'channel','hour']].groupby(by=['ip', 'device', 'channel'])[['hour']].mean().reset_index().rename(index=str, columns={'hour': 'ip_device_channel_mean_hour'})
-train_df = train_df.merge(gp, on=['ip','device', 'channel'], how='left')
-del gp
-gc.collect()
-
 print('grouping by : ip_app_chl_mean_hour')
 gp = train_df[['ip','app', 'channel','hour']].groupby(by=['ip', 'app', 'channel'])[['hour']].mean().reset_index().rename(index=str, columns={'hour': 'ip_app_channel_mean_hour'})
 print("merging...")
@@ -179,8 +167,7 @@ train_df['ip_day_hour_count_channel'] = train_df['ip_day_hour_count_channel'].as
 train_df['ip_app_count_channel'] = train_df['ip_app_count_channel'].astype('uint16')
 train_df['ip_device_count_channel'] = train_df['ip_device_count_channel'].astype('uint16')
 train_df['ip_app_os_count_channel'] = train_df['ip_app_os_count_channel'].astype('uint16')
-train_df['ip_device_os_count_channel'] = train_df['ip_device_os_count_channel'].astype('uint16')
-train_df['ip_device_channel_mean_hour'] = train_df['ip_device_channel_mean_hour'].astype('uint16')
+
 
 test_df = train_df[len_train:]
 val_df = train_df[(len_train-2500000):len_train]
@@ -192,8 +179,8 @@ print("test size : ", len(test_df))
 
 target = 'is_attributed'
 predictors = ['app','device','os', 'channel', 'hour', 'day', 
-              'ip_day_channel_var_hour', 'ip_day_hour_count_channel', 'ip_app_count_channel','ip_device_os_count_channel',
-              'ip_app_os_count_channel', 'ip_app_os_var_hour', 'ip_device_os_var_hour','ip_device_channel_mean_hour',
+              'ip_day_channel_var_hour', 'ip_day_hour_count_channel', 'ip_app_count_channel',
+              'ip_app_os_count_channel', 'ip_app_os_var_hour', 'ip_device_os_var_hour',
               'ip_app_channel_var_day','ip_app_channel_mean_hour','ip_device_count_channel']
 categorical = ['app', 'device', 'os', 'channel', 'hour', 'day']
 
@@ -207,17 +194,17 @@ start_time = time.time()
 
 
 params = {
-    'learning_rate': 0.15,
+    'learning_rate': 0.1,
     #'is_unbalance': 'true', # replaced with scale_pos_weight argument
     'num_leaves': 7,  # 2^max_depth - 1
-    'max_depth': 3,  # -1 means no limit
+    'max_depth': 4,  # -1 means no limit
     'min_child_samples': 100,  # Minimum number of data need in a child(min_data_in_leaf)
     'max_bin': 100,  # Number of bucketed bin for feature values
     'subsample': 0.7,  # Subsample ratio of the training instance.
     'subsample_freq': 1,  # frequence of subsample, <=0 means no enable
-    'colsample_bytree': 0.9,  # Subsample ratio of columns when constructing each tree.
+    'colsample_bytree': 0.7,  # Subsample ratio of columns when constructing each tree.
     'min_child_weight': 0,  # Minimum sum of instance weight(hessian) needed in a child(leaf)
-    'scale_pos_weight':99 # because training data is extremely unbalanced 
+    'scale_pos_weight':99.7 # because training data is extremely unbalanced 
 }
 bst = lgb_modelfit_nocv(params, 
                         train_df, 
