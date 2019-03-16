@@ -14,6 +14,7 @@ import lightgbm as lgb
 import gc
 import os
 
+
 def lgb_modelfit_nocv(params, dtrain, dvalid, predictors, target='target', objective='binary', metrics='auc',
                  feval=None, early_stopping_rounds=20, num_boost_round=3000, verbose_eval=10, categorical_features=None):
     lgb_params = {
@@ -99,9 +100,20 @@ gc.collect()
 print('Extracting new features...')
 train_df['hour'] = pd.to_datetime(train_df.click_time).dt.hour.astype('uint8')
 train_df['day'] = pd.to_datetime(train_df.click_time).dt.day.astype('uint8')
+train_df['minute'] = pd.to_datetime(train_df.click_time).dt.minute.astype('int8')
+train_df['second'] = pd.to_datetime(train_df.click_time).dt.second.astype('int8')
 
+
+############################
+cols =['ip', 'os', 'app', 'channel', 'day', 'hour', 'minute', 'second']
+summary = {}
+for col in cols:
+    summary[col]=train_df[[col]+['is_attributed']].groupby(by=[ 'is_attributed']).describe()
+ 
+####################
 gc.collect()
 
+   
 print('grouping by ip-day-hour combination...')
 gp = train_df[['ip','day','hour','channel']].groupby(by=['ip','day','hour'])[['channel']].count().reset_index().rename(index=str, columns={'channel': 'ip_day_hour_count_channel'})
 train_df = train_df.merge(gp, on=['ip','day','hour'], how='left')
@@ -127,11 +139,6 @@ train_df = train_df.merge(gp, on=['ip','app', 'os'], how='left')
 del gp
 gc.collect()
 
-print('grouping by ip-device-app-os combination...')
-gp = train_df[['ip','device','app', 'os', 'channel']].groupby(by=['ip', 'device', 'app', 'os'])[['channel']].count().reset_index().rename(index=str, columns={'channel': 'ip_device_app_os_count_channel'})
-train_df = train_df.merge(gp, on=['ip','device','app', 'os'], how='left')
-del gp
-gc.collect()
 
 # Adding features with var and mean hour (inspired from nuhsikander's script)
 print('grouping by : ip_day_chl_var_hour')
@@ -172,7 +179,6 @@ train_df['ip_day_hour_count_channel'] = train_df['ip_day_hour_count_channel'].as
 train_df['ip_app_count_channel'] = train_df['ip_app_count_channel'].astype('uint16')
 train_df['ip_device_count_channel'] = train_df['ip_device_count_channel'].astype('uint16')
 train_df['ip_app_os_count_channel'] = train_df['ip_app_os_count_channel'].astype('uint16')
-train_df['ip_device_app_os_count_channel'] = train_df['ip_device_app_os_count_channel'].astype('uint16')
 
 
 test_df = train_df[len_train:]
@@ -185,8 +191,7 @@ print("test size : ", len(test_df))
 
 target = 'is_attributed'
 predictors = ['app','device','os', 'channel', 'hour', 'day', 
-              'ip_day_channel_var_hour', 'ip_day_hour_count_channel', 
-              'ip_app_count_channel','ip_device_app_os_count_channel',
+              'ip_day_channel_var_hour', 'ip_day_hour_count_channel', 'ip_app_count_channel',
               'ip_app_os_count_channel', 'ip_app_os_var_hour', 'ip_device_os_var_hour',
               'ip_app_channel_var_day','ip_app_channel_mean_hour','ip_device_count_channel']
 categorical = ['app', 'device', 'os', 'channel', 'hour', 'day']
@@ -235,5 +240,3 @@ sub['is_attributed'] = bst.predict(test_df[predictors])
 print("writing...")
 sub.to_csv('sub_lgb_balanced99.csv',index=False)
 print("done...")
-
-
